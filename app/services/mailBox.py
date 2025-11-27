@@ -39,14 +39,14 @@ class MailBox:
         self.mail_connection.connect()
 
     def getListUnreadEmails(self):
-        # 选择 INBOX
+        # Select INBOX
         status, _ = self.mail_connection.connection.select("INBOX")
         if status != "OK":
             if self.debug:
                 logging.debug("IMAP select inbox failed: %s", status)
             return []
 
-        # 只搜索未读邮件
+        # Only search for unseen emails
         status, data = self.mail_connection.connection.search(None, 'UNSEEN')
         if self.debug:
             logging.debug("IMAP search status: %s", status)
@@ -57,10 +57,10 @@ class MailBox:
                 logging.debug("Search for UNSEEN emails returned nothing or failed.")
             return []
 
-        # 分拆 email IDs
+        # Split email IDs
         email_ids = data[0].split() if data[0] else []
 
-        # Debug: 打印每封邮件的 flags
+        # Debug: Print flags for each email
         if self.debug:
             for raw_id in email_ids:
                 flag_status, flag_data = self.mail_connection.connection.fetch(raw_id, "(FLAGS)")
@@ -71,7 +71,7 @@ class MailBox:
                     flag_data,
                 )
 
-        # 转换为字符串 ID
+        # Convert to string IDs
         return [
             raw_id.decode() if isinstance(raw_id, bytes) else raw_id
             for raw_id in email_ids
@@ -122,7 +122,7 @@ class Email:
 
     def parse_email(self):
         """
-        raw_tuple like：
+        raw_tuple like:
         (b'49 (RFC822 {7854}', b'.....email content.....')
         """
         raw_email = self.email[0][1]
