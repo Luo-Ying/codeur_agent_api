@@ -9,6 +9,8 @@ run:
 stop:
 	docker compose down
 
+build-run: build run
+
 rebuild-run: stop build run
 
 logs:
