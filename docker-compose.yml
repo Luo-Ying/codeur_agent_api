@@ -1,13 +1,15 @@
-version: '3.8'
+# version: '3.8'
 
 services:
   ollama-init:
     image: ollama/ollama:latest
     depends_on:
       - ollama-latest
-    entrypoint: [ "/bin/sh", "-c", "ollama pull llama3" ]
+    entrypoint: [ "/bin/sh", "-c", "until ollama list >/dev/null 2>&1; do echo 'waiting for ollama-latest'; sleep 5; done; ollama pull llama3" ]
     volumes:
       - ./ollama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://ollama-latest:11434
     restart: "no"
 
   codeur-agent-api:
@@ -31,6 +33,12 @@ services:
       - ./ollama:/root/.ollama
     environment:
       - OLLAMA_KEEP_ALIVE=1h
+    healthcheck:
+      test: [ "CMD", "ollama", "list" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     deploy:
       resources:
         reservations:

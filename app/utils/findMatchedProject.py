@@ -3,8 +3,9 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-
 from bs4 import BeautifulSoup
+
+from app.services.crawler import Crawler
 
 from app.services.globalVars import profile
 from app.services.llama_client import call_llama
@@ -30,21 +31,32 @@ def is_matched_project(emailcontent: str) -> bool:
         logger.debug("Email content is empty, return False")
         return False
 
-    if not first_step_filter(text_content):
-        logger.debug("First step filter failed, return False")
+    if not keyword_filter(text_content):
+        logger.debug("Keyword filter failed, return False")
         return False
 
     # TODO: second step filter: crawl project details and filter by project details in the codeur website
     
-
+    # first step filter: email content filter
     decision = ai_match_decision(text_content)
     if decision.score is None:
         return decision.matched
 
+    # second step filter: project details filter
+    project_url = extract_projectUrl_from_emailcontent(emailcontent)
+    if project_url is None:
+        logger.debug("Project URL not found, return False")
+        return False
+
+    # crawl project details
+    crawler = Crawler(project_url)
+    project_details = crawler.crawl_project_details()
+    print("project details: ", project_details)
+
     return decision.matched and decision.score >= _MIN_AI_SCORE
 
 
-def first_step_filter(emailcontent: str) -> bool:
+def keyword_filter(emailcontent: str) -> bool:
     lowered = emailcontent.lower()
 
     if _RULE_KEYWORDS:
@@ -63,7 +75,7 @@ def ai_match_decision(emailcontent: str) -> MatchDecision:
         ai_response = call_llama(prompt)
     except Exception as exc:
         logger.error("AI call failed, fallback to rule result: %s", exc, exc_info=True)
-        return MatchDecision(matched=True)  # Conservative strategy: rule layer already passed
+        return MatchDecision(matched=False)  # Conservative strategy: rule layer already passed
 
     return parse_ai_decision(ai_response)
 
@@ -114,3 +126,13 @@ def extract_text_from_html(html_content: str) -> str:
     if body:
         return body.get_text(separator="\n", strip=True)
     return soup.get_text(separator="\n", strip=True)
+
+def extract_projectUrl_from_emailcontent(emailcontent: str) -> str:
+    soup = BeautifulSoup(emailcontent, "html.parser")
+    body = soup.body
+    if body:
+        links = body.find_all("a")
+        for link in links:
+            if "https://www.codeur.com/projects/" in link["href"]:
+                return link["href"]
+    return None
