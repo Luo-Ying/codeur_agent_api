@@ -1,11 +1,12 @@
 import random
 import time
 from typing import Dict, Optional, Tuple
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import requests
 import urllib.robotparser as robotparser
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup  # pyright: ignore[reportMissingModuleSource]
+
 
 class Crawler:
     USER_AGENT = "CodeurAgentCrawler/1.0 (yingqi.luo.fr@gmail.com)"
@@ -22,7 +23,7 @@ class Crawler:
         session: Optional[requests.Session] = None,
         user_agent: Optional[str] = None,
     ):
-        self.url = self._request_without_params(url)
+        self.url = url
         self.user_agent = user_agent or self.USER_AGENT
         self.session = session or requests.Session()
         self.session.headers.update(
@@ -34,41 +35,68 @@ class Crawler:
             }
         )
         self._page_cache: Dict[str, str] = {}
+        self._soup_cache: Dict[str, BeautifulSoup] = {}
+        self._detail_cache: Dict[str, str] = {}
+        self._title_cache: Dict[str, str] = {}
+        self._tags_cache: Dict[str, list[str]] = {}
+        self._client_url_cache: Dict[str, str] = {}
+        self.html: Optional[str] = None
+        self.soup: Optional[BeautifulSoup] = None
 
-    def crawl_project_details(self) -> str:
-        print("crawling project details: ", self.url)
-        if not self._is_allowed(self.url):
-            return ""
+    def _ensure_document(self, url: str) -> Optional[BeautifulSoup]:
+        cache_key = self._cache_key(url)
+        if cache_key in self._soup_cache:
+            self.html = self._page_cache.get(cache_key)
+            self.soup = self._soup_cache[cache_key]
+            return self.soup
 
-        if self.url in self._page_cache:
-            return self._page_cache[self.url]
+        html = self._fetch_html(url)
+        if html is None:
+            self.html = None
+            self.soup = None
+            return None
 
-        html = self._request_with_retries(self.url)
         soup = BeautifulSoup(html, "html.parser")
+        self._page_cache[cache_key] = html
+        self._soup_cache[cache_key] = soup
+        self.html = html
+        self.soup = soup
+        return soup
 
-        desc_div = soup.find("div", class_="project-description break-words")
-        if not desc_div:
-            self._page_cache[self.url] = ""
-            return ""
+    def _fetch_html(self, url: str) -> Optional[str]:
+        if not self._complies_with_site_policy(url):
+            return None
 
-        content_div = desc_div.find("div", class_="content")
-        if content_div:
-            text = content_div.get_text(separator="\n", strip=True)
-            self._page_cache[self.url] = text
-            return text
+        cache_key = self._cache_key(url)
+        if cache_key in self._page_cache:
+            return self._page_cache[cache_key]
 
-        text = desc_div.get_text(separator="\n", strip=True)
-        self._page_cache[self.url] = text
-        return text
+        if not self._can_fetch(cache_key):
+            return None
 
-    def _request_without_params(self, url: str) -> str:
-        # Remove everything from the first '?' (including '?') in the URL
-        idx = url.find("?")
-        if idx != -1:
-            url = url[:idx]
-        return url
+        html = self._request_with_retries(cache_key)
+        if html is not None:
+            self._page_cache[cache_key] = html
+        return html
 
-    def _request_with_retries(self, url: str) -> str:
+    def _normalize_url(self, url: str) -> str:
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        filtered_params = [
+            ("page", value)
+            for key, values in params.items()
+            if key == "page"
+            for value in values
+        ]
+        normalized_query = urlencode(filtered_params)
+        normalized = parsed._replace(query=normalized_query)
+        return normalized.geturl()
+
+    def _cache_key(self, url: Optional[str] = None) -> str:
+        reference_url = url or self.url
+        return self._normalize_url(reference_url)
+
+    def _request_with_retries(self, url: str) -> Optional[str]:
         retries = 0
         backoff = 1.0
         while retries < self.MAX_RETRIES:
@@ -91,6 +119,7 @@ class Crawler:
                     self._backoff_sleep(backoff)
                     backoff *= self.BACKOFF_BASE
                     continue
+
                 response.raise_for_status()
                 return response.text
             finally:
@@ -98,22 +127,27 @@ class Crawler:
 
         raise requests.HTTPError(f"Unable to fetch {url} after {self.MAX_RETRIES} retries.")
 
-    # delay for 1-5 seconds
     def _courtesy_delay(self) -> None:
         time.sleep(random.uniform(*self.REQUEST_DELAY_RANGE))
 
-    # delay for 1-2 seconds
     def _backoff_sleep(self, backoff: float) -> None:
         time.sleep(backoff + random.uniform(0, 1))
 
-    # check if the url complies with the site policy
-    def _is_allowed(self, target_url: str) -> bool:
+    def _complies_with_site_policy(self, target_url: str) -> bool:
+        parsed = urlparse(target_url)
+        if parsed.path.startswith("/system/projects/"):
+            return False
+
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        disallowed_params = set(params.keys()) - {"page"}
+        return not disallowed_params
+
+    def _can_fetch(self, target_url: str) -> bool:
         parser = self._ensure_robot_parser(target_url)
         if parser is None:
             return True
         return parser.can_fetch(self.user_agent, target_url)
 
-    # ensure the robot parser is cached and return the robot parser
     def _ensure_robot_parser(self, target_url: str) -> Optional[robotparser.RobotFileParser]:
         parsed = urlparse(target_url)
         key = (parsed.scheme, parsed.netloc, self.user_agent)
@@ -134,3 +168,123 @@ class Crawler:
 
         self._robots_cache[key] = parser
         return parser
+
+
+class CodeurProjectCrawler(Crawler):
+    def __init__(self, url: str):
+        super().__init__(url)
+        self._ensure_document(url)
+
+    def check_project_availability(self) -> bool:
+        cache_key = self._cache_key(self.url) + ":availability"
+        if hasattr(self, "_availability_cache") and cache_key in self._availability_cache:
+            return self._availability_cache[cache_key]
+
+        soup = self._ensure_document(self.url)
+        if soup is None:
+            if not hasattr(self, "_availability_cache"):
+                self._availability_cache = {}
+            self._availability_cache[cache_key] = False
+            return False
+
+        container = soup.find("div", class_="flex gap-4 flex-col")
+        if not container:
+            if not hasattr(self, "_availability_cache"):
+                self._availability_cache = {}
+            self._availability_cache[cache_key] = False
+            return False
+
+        p_tag = container.find("p", class_="font-medium mb-0 flex flex-wrap")
+        if not p_tag:
+            if not hasattr(self, "_availability_cache"):
+                self._availability_cache = {}
+            self._availability_cache[cache_key] = False
+            return False
+
+        # The <span> for "Ouvert" contains a <svg>, then '&nbsp;', then text "Ouvert"
+        for span in p_tag.find_all("span", class_="whitespace-nowrap"):
+            # Clean the text, Chrome/BeautifulSoup may interpret &nbsp; as u"\xa0"
+            text = ''.join(span.stripped_strings)
+            if "Ouvert" in text:
+                if not hasattr(self, "_availability_cache"):
+                    self._availability_cache = {}
+                self._availability_cache[cache_key] = True
+                return True
+
+        if not hasattr(self, "_availability_cache"):
+            self._availability_cache = {}
+        self._availability_cache[cache_key] = False
+        return False
+
+    def crawl_project_title(self) -> str:
+        cache_key = self._cache_key(self.url)
+        if cache_key in self._title_cache:
+            return self._title_cache[cache_key]
+
+        soup = self._ensure_document(self.url)
+        if soup is None:
+            self._title_cache[cache_key] = ""
+            return ""
+
+        h1_tag = soup.find("h1", class_="text-3xl lg:text-4xl font-bold mb-4 text-darker")
+        if h1_tag:
+            text = h1_tag.get_text(strip=True)
+            self._title_cache[cache_key] = text
+            return text
+
+        self._title_cache[cache_key] = ""
+        return ""
+
+    def crawl_project_details(self) -> str:
+        cache_key = self._cache_key(self.url)
+        if cache_key in self._detail_cache:
+            return self._detail_cache[cache_key]
+
+        soup = self._ensure_document(self.url)
+        if soup is None:
+            self._detail_cache[cache_key] = ""
+            return ""
+
+        desc_div = soup.find("div", class_="project-description break-words")
+        if not desc_div:
+            self._detail_cache[cache_key] = ""
+            return ""
+
+        content_div = desc_div.find("div", class_="content")
+        if content_div:
+            text = content_div.get_text(separator="\n", strip=True)
+            self._detail_cache[cache_key] = text
+            return text
+
+        self._detail_cache[cache_key] = ""
+        return ""
+
+    def crawl_project_tags(self) -> list[str]:
+        cache_key = self._cache_key(self.url)
+        if cache_key in self._tags_cache:
+            return self._tags_cache[cache_key]
+
+        soup = self._ensure_document(self.url)
+        if soup is None:
+            self._tags_cache[cache_key] = []
+            return []
+
+        tags = []
+        p_tags = soup.find_all("p", class_="flex items-start gap-2 m-0")
+        for p in p_tags:
+            # Find all <span> under <p>
+            spans = p.find_all("span", recursive=False)
+            for span in spans:
+                # If there are inner <span>, skip the SVG icon span and only process text/links
+                # Get all descendants that are NavigableString or <a>
+                for descendant in span.descendants:
+                    if getattr(descendant, "name", None) == "a":
+                        text = descendant.get_text(strip=True)
+                        if text:
+                            tags.append(text)
+                    elif not hasattr(descendant, "name"):
+                        text = str(descendant).strip()
+                        if text and text != "Profils recherchés :":
+                            tags.append(text)
+        self._tags_cache[cache_key] = tags
+        return tags

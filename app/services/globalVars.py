@@ -1,4 +1,7 @@
 # TODO: get profile value from client 
+from enum import Enum
+
+
 profile = """
 À propos d’Yingqi
 Passionnée par le développement logiciel et spécialisée en full-stack, je conçois et développe des applications robustes, scalables et maintenables.
@@ -38,14 +41,12 @@ Je serai ravie de découvrir votre projet et d’y contribuer avec efficacité, 
 
 project_list = []
 
-STATUS_NEW = "new"
-STATUS_ANSWERED = "answered"
-STATUS_REJECTED = "rejected"
-STATUS_PENDING = "pending"
 
-project_status = {
-    STATUS_NEW,
-    STATUS_ANSWERED,
-    STATUS_REJECTED,
-    STATUS_PENDING
-}
+class ProjectStatus(str, Enum):
+    NEW = "new"
+    ANSWERED = "answered"
+    REJECTED = "rejected"
+    PENDING = "pending"
+
+
+PROJECT_STATUS_VALUES = {status.value for status in ProjectStatus}

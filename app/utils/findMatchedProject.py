@@ -3,9 +3,9 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup  # pyright: ignore[reportMissingModuleSource]
 
-from app.services.crawler import Crawler
+from app.services.crawler import CodeurProjectCrawler
 
 from app.services.globalVars import profile
 from app.services.llama_client import call_llama
@@ -26,7 +26,6 @@ class MatchDecision:
 
 def is_matched_project(emailcontent: str) -> bool:
     text_content = extract_text_from_html(emailcontent)
-    print("text content: ", text_content, "\n")
     if not text_content:
         logger.debug("Email content is empty, return False")
         return False
@@ -35,8 +34,6 @@ def is_matched_project(emailcontent: str) -> bool:
         logger.debug("Keyword filter failed, return False")
         return False
 
-    # TODO: second step filter: crawl project details and filter by project details in the codeur website
-    
     # first step filter: email content filter
     decision = ai_match_decision(text_content)
     if decision.score is None:
@@ -47,11 +44,29 @@ def is_matched_project(emailcontent: str) -> bool:
     if project_url is None:
         logger.debug("Project URL not found, return False")
         return False
+    # crawler = Crawler(project_url)
+    codeur_project_crawler = CodeurProjectCrawler(project_url)
+    project_details = codeur_project_crawler.crawl_project_details()  # crawl project details from the codeur website
+    decision = ai_match_decision(project_details)   # parse AI decision from the project details
+    if decision.score is None:
+        return decision.matched
 
-    # crawl project details
-    crawler = Crawler(project_url)
-    project_details = crawler.crawl_project_details()
-    print("project details: ", project_details)
+    # # TODO: project details filter by content if noticed no gpt prompt ...
+    # if decision.matched:
+    #     lowered_details = project_details.lower()
+    #     if any(
+    #         phrase in lowered_details
+    #         for phrase in [
+    #             "pas par un prompt",
+    #             "pas par un prompt gpt",
+    #             "par un prompt gpt",
+    #             "par un prompt llm",
+    #             "par un prompt ai",
+    #         ]
+    #     ):
+    #         logger.debug("Project details specify not to use GPT/LLM/AI prompts, returning False")
+    #         return False
+
 
     return decision.matched and decision.score >= _MIN_AI_SCORE
 
