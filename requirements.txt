@@ -2,3 +2,4 @@ fastapi[standard]>=0.112.0,<0.113.0
 uvicorn>=0.34.0,<0.35.0
 beautifulsoup4>=4.12.2,<5
 requests>=2.32.0,<3
+motor>=3.7.1,<4.0.0
