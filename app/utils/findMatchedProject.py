@@ -5,10 +5,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from bs4 import BeautifulSoup  # pyright: ignore[reportMissingModuleSource]
 
-from app.services.crawler import CodeurProjectCrawler
+from app.services import CodeurProjectCrawler
 
 from app.services.globalVars import profile
 from app.services.llama_client import call_llama
+from app.utils.someCommonFunctions import extract_projectUrl_from_emailcontent
 
 logger = logging.getLogger(__name__)
 
@@ -45,28 +46,11 @@ def is_matched_project(emailcontent: str) -> bool:
         logger.debug("Project URL not found, return False")
         return False
     # crawler = Crawler(project_url)
-    codeur_project_crawler = CodeurProjectCrawler(project_url)
-    project_details = codeur_project_crawler.crawl_project_details()  # crawl project details from the codeur website
+    crawler = CodeurProjectCrawler(project_url)
+    project_details = crawler.crawl_project_details()  # crawl project details from the codeur website
     decision = ai_match_decision(project_details)   # parse AI decision from the project details
     if decision.score is None:
         return decision.matched
-
-    # # TODO: project details filter by content if noticed no gpt prompt ...
-    # if decision.matched:
-    #     lowered_details = project_details.lower()
-    #     if any(
-    #         phrase in lowered_details
-    #         for phrase in [
-    #             "pas par un prompt",
-    #             "pas par un prompt gpt",
-    #             "par un prompt gpt",
-    #             "par un prompt llm",
-    #             "par un prompt ai",
-    #         ]
-    #     ):
-    #         logger.debug("Project details specify not to use GPT/LLM/AI prompts, returning False")
-    #         return False
-
 
     return decision.matched and decision.score >= _MIN_AI_SCORE
 
@@ -142,12 +126,12 @@ def extract_text_from_html(html_content: str) -> str:
         return body.get_text(separator="\n", strip=True)
     return soup.get_text(separator="\n", strip=True)
 
-def extract_projectUrl_from_emailcontent(emailcontent: str) -> str:
-    soup = BeautifulSoup(emailcontent, "html.parser")
-    body = soup.body
-    if body:
-        links = body.find_all("a")
-        for link in links:
-            if "https://www.codeur.com/projects/" in link["href"]:
-                return link["href"]
-    return None
+# def extract_projectUrl_from_emailcontent(emailcontent: str) -> str:
+#     soup = BeautifulSoup(emailcontent, "html.parser")
+#     body = soup.body
+#     if body:
+#         links = body.find_all("a")
+#         for link in links:
+#             if "https://www.codeur.com/projects/" in link["href"]:
+#                 return link["href"]
+#     return None

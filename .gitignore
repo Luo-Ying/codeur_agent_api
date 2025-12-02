@@ -1,2 +1,6 @@
 .env
 ollama/
+env/
+secrets/
+__pycache__/
+app/services/storage_state.json

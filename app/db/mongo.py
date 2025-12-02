@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient  # pyright: ignore[reportMissingImports]
 from urllib.parse import urlparse
 
 
