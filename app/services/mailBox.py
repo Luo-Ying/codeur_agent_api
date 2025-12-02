@@ -1,4 +1,3 @@
-import datetime
 import imaplib
 import logging
 
@@ -47,7 +46,8 @@ class MailBox:
             return []
 
         # Only search for unseen emails
-        status, data = self.mail_connection.connection.search(None, 'UNSEEN')
+        status, data = self.mail_connection.connection.uid("SEARCH", None, "UNSEEN")
+
         if self.debug:
             logging.debug("IMAP search status: %s", status)
             logging.debug("Raw UNSEEN payload: %s", data)
@@ -62,13 +62,15 @@ class MailBox:
 
         # Debug: Print flags for each email
         if self.debug:
-            for raw_id in email_ids:
-                flag_status, flag_data = self.mail_connection.connection.fetch(raw_id, "(FLAGS)")
+            for raw_uid in email_ids:
+                flag_status, flag_data = self.mail_connection.connection.uid(
+                    "FETCH", raw_uid, "(FLAGS)"
+                )
                 logging.debug(
-                    "Email %s flags: status=%s data=%s",
-                    raw_id.decode() if isinstance(raw_id, bytes) else raw_id,
+                    "Email UID %s flags: %s %s",
+                    raw_uid.decode(),
                     flag_status,
-                    flag_data,
+                    flag_data
                 )
 
         # Convert to string IDs
@@ -77,21 +79,52 @@ class MailBox:
             for raw_id in email_ids
         ]
 
-
-
-
     def getEmail(self, email_id: str):
-        message_id = email_id.decode().strip() if isinstance(email_id, bytes) else str(email_id).strip()
+        message_uid = email_id.decode().strip() if isinstance(email_id, bytes) else str(email_id).strip()
+
+        if not message_uid:
+            if self.debug:
+                logging.debug("Empty email identifier received while fetching email.")
+            return None
 
         if self.debug:
-            flag_status, flag_data = self.mail_connection.connection.fetch(message_id, "(FLAGS)")
-            logging.debug("Pre-fetch flags for %s: status=%s data=%s", message_id, flag_status, flag_data)
+            flag_status, flag_data = self.mail_connection.connection.uid("FETCH", message_uid, "(FLAGS)")
+            logging.debug("Pre-fetch flags for %s: status=%s data=%s", message_uid, flag_status, flag_data)
 
-        status, email_data = self.mail_connection.connection.fetch(message_id, "(BODY.PEEK[])")
-        if status == "OK":
-            return email_data
-        else:
+        status, email_data = self.mail_connection.connection.uid("FETCH", message_uid, "(BODY.PEEK[])")
+        if status != "OK" or not email_data:
+            if self.debug:
+                logging.debug("Failed to fetch email UID %s: status=%s data=%s", message_uid, status, email_data)
             return None
+
+        # filter out None placeholders that some IMAP servers return
+        return [chunk for chunk in email_data if chunk]
+
+    def setEmailSeen(self, email_uid: str) -> bool:
+        """
+        Attempts to mark the specified email as read (seen). 
+        Returns True if the operation was successful, False otherwise.
+        """
+        try:
+            # must be in read-write mode
+            status, _ = self.mail_connection.connection.select("INBOX", readonly=False)
+            if status != "OK":
+                return False
+
+            # Use UID STORE instead of STORE
+            status, response = self.mail_connection.connection.uid(
+                "STORE",
+                email_uid,
+                "+FLAGS",
+                "\\Seen"
+            )
+
+        except Exception as e:
+            if self.debug:
+                logging.debug("Exception marking email seen: %s", e)
+            return False
+
+        return status == "OK"
 
     def close(self):
         self.mail_connection.disconnect()
@@ -106,6 +139,47 @@ class Email:
         self.email_title = ""
         self.email_from = ""
         self.email_content = ""
+
+    def _extract_raw_email_bytes(self):
+        """
+        Extract the raw email payload bytes from the IMAP response.
+        Returns None if no payload was found.
+        """
+
+        def extract(entry):
+            if entry is None:
+                return None
+
+            if isinstance(entry, tuple):
+                if len(entry) >= 2 and isinstance(entry[1], (bytes, bytearray)):
+                    return bytes(entry[1])
+                # fall back to inspecting individual parts
+                for sub_entry in entry:
+                    candidate = extract(sub_entry)
+                    if candidate is not None:
+                        return candidate
+                return None
+
+            if isinstance(entry, list):
+                for sub_entry in entry:
+                    candidate = extract(sub_entry)
+                    if candidate is not None:
+                        return candidate
+                return None
+
+            if isinstance(entry, (bytes, bytearray)):
+                stripped = entry.strip()
+                if not stripped or stripped == b")":
+                    return None
+                first_token = stripped.split(b" ", 1)[0]
+                if first_token.isdigit():
+                    # metadata such as "49 (BODY..." should be ignored
+                    return None
+                return bytes(entry)
+
+            return None
+
+        return extract(self.email)
 
     def decode_header_value(self, header_value):
         """decode any email header field to a readable string"""
@@ -122,10 +196,14 @@ class Email:
 
     def parse_email(self):
         """
+        parse the email and return the email title, email from, email content.....
+        
         raw_tuple like:
         (b'49 (RFC822 {7854}', b'.....email content.....')
         """
-        raw_email = self.email[0][1]
+        raw_email = self._extract_raw_email_bytes()
+        if raw_email is None:
+            raise ValueError("IMAP response missing raw email payload")
 
         # email headers
         msg = email.message_from_bytes(raw_email)
@@ -143,10 +221,17 @@ class Email:
                 content_type = part.get_content_type()
                 if content_type == "text/plain":
                     charset = part.get_content_charset() or "utf-8"
-                    email_content = part.get_payload(decode=True).decode(charset, errors="ignore")
+                    payload = part.get_payload(decode=True)
+                    if isinstance(payload, bytes):
+                        email_content = payload.decode(charset, errors="ignore")
+                    elif isinstance(payload, str):
+                        email_content = payload
                     break
         else:
             charset = msg.get_content_charset() or "utf-8"
-            payload = msg.get_payload(decode=True).decode(charset, errors="ignore")
-            email_content = payload
+            payload = msg.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                email_content = payload.decode(charset, errors="ignore")
+            elif isinstance(payload, str):
+                email_content = payload
         return email_content

@@ -33,3 +33,8 @@ async def list_projects(limit: int | None = None) -> list[dict[str, Any]]:
             doc["_id"] = str(doc["_id"])
         results.append(doc)
     return results
+
+
+async def get_project_by_url(url: str) -> dict[str, Any] | None:
+    collection = _get_collection()
+    return await collection.find_one({"url": url})
