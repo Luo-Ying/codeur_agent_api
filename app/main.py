@@ -67,23 +67,14 @@ async def get_codeur_new_project_matched() -> list[dict]:
             mail_box.setEmailSeen(email_id)
             continue
         project, is_project_available = build_object_project(email_content)
+        if not is_project_available:
+            mail_box.setEmailSeen(email_id)
+            continue
         if is_project_available and project is not None:
             project_dict = project.__dict__
             project_list.append(project_dict)
             await upsert_project(project_dict)
             mail_box.setEmailSeen(email_id)
-    
-    # email = mail_box.getEmail(unread_emails[500])
-    # email_obj = Email(email)
-    # email_title, email_from, email_content = email_obj.parse_email()
-    # is_matched = is_matched_project(email_content)
-    # # print("email content: ", email_content, "\n")
-    # print("email from: ", email_from, "\n")
-    # print("email title: ", email_title, "\n")
-    # print("is matched project: ", is_matched, "\n")
-    # project, is_project_available = build_object_project(email_content)
-    # print("project: ", project, "\n")
-    # print("is project available: ", is_project_available, "\n")
 
     mail_box.close()
     return project_list
@@ -100,3 +91,15 @@ async def apply_all_projects() -> list[dict]:
         if project.status != ProjectStatus.NEW:
             continue
         apply_for_project(project.url)
+
+@app.get("/projects/apply_project")
+async def apply_project(project_url: str) -> dict:
+    print("Apply project: ", project_url)
+    project = await get_project_by_url(project_url)
+    if not project:
+        return {"success": False, "error": "Project not found"}
+    try:
+        await apply_for_project(project)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

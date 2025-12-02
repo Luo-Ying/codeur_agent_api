@@ -12,10 +12,10 @@ _DEFAULT_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
 
 def call_llama(
     prompt: str,
+    system_prompt: str,
     *,
     model: Optional[str] = None,
     format_hint: str = "json",
-    system_prompt: Optional[str] = None,
     timeout: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Call the local Ollama service and return a JSON-decoded response."""
@@ -24,17 +24,13 @@ def call_llama(
     selected_model = model or os.getenv("MATCH_MODEL_NAME") or os.getenv("OLLAMA_MODEL", "llama3")
     request_timeout = timeout or int(os.getenv("OLLAMA_TIMEOUT", "60"))
 
-    system_text = system_prompt or (
-        "You are a helper responsible for analyzing the match between candidates and projects, and can only output JSON format conclusions."
-    )
-
     payload: Dict[str, Any] = {
         "model": selected_model,
         "stream": False,
         "messages": [
             {
                 "role": "system",
-                "content": system_text,
+                "content": system_prompt,
             },
             {
                 "role": "user",
@@ -61,7 +57,7 @@ def call_llama(
         return _call_generate(
             host=host,
             model=selected_model,
-            prompt=_build_generate_prompt(system_text, prompt),
+            prompt=_build_generate_prompt(system_prompt, prompt),
             timeout=request_timeout,
         )
 
@@ -93,8 +89,8 @@ def _call_generate(host: str, model: str, prompt: str, timeout: int) -> Dict[str
     return _parse_json_response(response.json())
 
 
-def _build_generate_prompt(system_text: str, user_prompt: str) -> str:
-    return f"{system_text}\n\n{user_prompt}" if system_text else user_prompt
+def _build_generate_prompt(system_prompt: str, user_prompt: str) -> str:
+    return f"{system_prompt}\n\n{user_prompt}"
 
 
 def _parse_json_response(data: Dict[str, Any]) -> Dict[str, Any]:
