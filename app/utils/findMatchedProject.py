@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup  # pyright: ignore[reportMissingModuleSource]
 from app.services import CodeurProjectCrawler
 
 from app.services.globalVars import profile
-from app.services.llama_client import call_llama
+from app.services import call_llama as call_llama_service
 from app.utils.someCommonFunctions import extract_projectUrl_from_emailcontent
 
 logger = logging.getLogger(__name__)
@@ -69,9 +69,10 @@ def keyword_filter(emailcontent: str) -> bool:
 
 def ai_match_decision(emailcontent: str) -> MatchDecision:
     prompt = build_prompt(profile, emailcontent)
+    system_prompt = "You are a helper responsible for analyzing the match between candidates and projects, and can only output JSON format conclusions."
 
     try:
-        ai_response = call_llama(prompt)
+        ai_response = call_llama_service(prompt, system_prompt)
     except Exception as exc:
         logger.error("AI call failed, fallback to rule result: %s", exc, exc_info=True)
         return MatchDecision(matched=False)  # Conservative strategy: rule layer already passed
@@ -125,13 +126,3 @@ def extract_text_from_html(html_content: str) -> str:
     if body:
         return body.get_text(separator="\n", strip=True)
     return soup.get_text(separator="\n", strip=True)
-
-# def extract_projectUrl_from_emailcontent(emailcontent: str) -> str:
-#     soup = BeautifulSoup(emailcontent, "html.parser")
-#     body = soup.body
-#     if body:
-#         links = body.find_all("a")
-#         for link in links:
-#             if "https://www.codeur.com/projects/" in link["href"]:
-#                 return link["href"]
-#     return None

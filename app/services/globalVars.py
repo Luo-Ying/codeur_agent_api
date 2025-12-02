@@ -3,7 +3,7 @@ from enum import Enum
 
 
 profile = """
-À propos d’Yingqi
+À propos d’Yingqi, une développeuse full-stack, femme, chinoise, basée à Montpellier, France:
 Passionnée par le développement logiciel et spécialisée en full-stack, je conçois et développe des applications robustes, scalables et maintenables.
 Mon objectif : livrer du code propre, optimisé et aligné avec les besoins métier 🎯.
 
@@ -47,6 +47,7 @@ class ProjectStatus(str, Enum):
     ANSWERED = "answered"
     REJECTED = "rejected"
     PENDING = "pending"
+    NOT_AVAILABLE = "not_available"
 
 
 PROJECT_STATUS_VALUES = {status.value for status in ProjectStatus}
