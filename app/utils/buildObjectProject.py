@@ -13,6 +13,6 @@ def build_object_project(email_content: str) -> tuple[Project, bool]:
     project_title = crawler.crawl_project_title()
     project_details = crawler.crawl_project_details()
     project_tags = crawler.crawl_project_tags()
-
-    project = Project(project_title, project_details, project_tags, project_url, ProjectStatus.NEW)
+    project_amount = crawler.crawl_project_amount()
+    project = Project(project_title, project_details, project_tags, project_url, project_amount, ProjectStatus.NEW)
     return project, True

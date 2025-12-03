@@ -7,7 +7,7 @@ from app.db.mongo import connect_to_mongo, close_mongo_connection
 from app.services.mailBox import Email, MailBox, MailConnection, MailConnectionConfig
 from app.utils.findMatchedProject import is_matched_project
 from app.utils.buildObjectProject import build_object_project
-from app.repositories.project_repository import get_project_by_url, list_projects, upsert_project
+from app.repositories.project_repository import delete_all_projects_from_db, get_project_by_url, list_projects, upsert_project
 from app.services.globalVars import ProjectStatus
 from app.utils.applyForProject import apply_for_project
 from app.utils.someCommonFunctions import extract_projectUrl_from_emailcontent
@@ -103,3 +103,8 @@ async def apply_project(project_url: str) -> dict:
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@app.get("/projects/delete_all_projects")
+async def delete_all_projects() -> dict:
+    await delete_all_projects_from_db()
+    return {"success": True}
