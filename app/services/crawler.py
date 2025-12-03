@@ -38,7 +38,7 @@ class Crawler:
         self._detail_cache: Dict[str, str] = {}
         self._title_cache: Dict[str, str] = {}
         self._tags_cache: Dict[str, list[str]] = {}
-        self._client_url_cache: Dict[str, str] = {}
+        self._amount_cache: Dict[str, list[int]] = {}
         self.html: Optional[str] = None
         self.soup: Optional[BeautifulSoup] = None
 

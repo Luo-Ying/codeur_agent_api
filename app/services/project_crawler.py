@@ -3,6 +3,8 @@ from app.services.crawler import Crawler
 class CodeurProjectCrawler(Crawler):
     def __init__(self, url: str):
         super().__init__(url)
+        self._availability_cache: dict[str, bool] = {}
+        self._amount_cache: dict[str, list[int] | int] = {}
         self._ensure_document(url)
 
     def check_project_availability(self) -> bool:
@@ -118,3 +120,43 @@ class CodeurProjectCrawler(Crawler):
                             tags.append(text)
         self._tags_cache[cache_key] = tags
         return tags
+
+    def crawl_project_amount(self) -> int:
+        cache_key = self._cache_key(self.url)
+        if cache_key in self._amount_cache:
+            return self._amount_cache[cache_key]
+
+        soup = self._ensure_document(self.url)
+        if soup is None:
+            self._amount_cache[cache_key] = 0
+            return 0
+
+        # Find the <p> element containing budget info
+        budget_p = soup.find("p", class_="font-medium mb-0 flex flex-wrap")
+        if not budget_p:
+            self._amount_cache[cache_key] = 0
+            return 0
+
+        # Find <span> with data-controller="tooltip" and data-bs-original-title="Budget indicatif"
+        budget_span = budget_p.find("span", {"data-controller": "tooltip", "data-bs-original-title": "Budget indicatif"})
+        if not budget_span:
+            self._amount_cache[cache_key] = 0
+            return 0
+
+        text = budget_span.get_text(strip=True)
+        # Example expected: "500 € à 1 000 €"
+        import re
+        # Find numbers (may contain thousands separators or non-breaking spaces)
+        result = re.findall(r"(\d[\d\s\u00a0]*)\s*€", text)
+        if len(result) >= 2:
+            min_amount = int(result[0].replace(" ", "").replace(" ", ""))
+            max_amount = int(result[1].replace(" ", "").replace(" ", ""))
+            self._amount_cache[cache_key] = [min_amount, max_amount]
+            return [min_amount, max_amount]
+        elif len(result) == 1:
+            amount = int(result[0].replace(" ", "").replace(" ", ""))
+            self._amount_cache[cache_key] = [amount, amount]
+            return [amount, amount]
+
+        self._amount_cache[cache_key] = 0
+        return 0

@@ -43,3 +43,7 @@ async def get_project_by_url(url: str) -> dict[str, Any] | None:
 async def update_project_status(project_id: str, status: ProjectStatus | str) -> None:
     collection = _get_collection()
     await collection.update_one({"project_id": project_id}, {"$set": {"status": status.value if isinstance(status, ProjectStatus) else status}})
+
+async def delete_all_projects_from_db() -> None:
+    collection = _get_collection()
+    await collection.delete_many({})
