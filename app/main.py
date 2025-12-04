@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 from fastapi import FastAPI # pyright: ignore[reportMissingImports]
 import os
 from dotenv import load_dotenv
@@ -7,7 +8,14 @@ from app.db.mongo import connect_to_mongo, close_mongo_connection
 from app.services.mailBox import Email, MailBox, MailConnection, MailConnectionConfig
 from app.utils.findMatchedProject import is_matched_project
 from app.utils.buildObjectProject import build_object_project
-from app.repositories.project_repository import delete_all_projects_from_db, get_project_by_url, list_projects, upsert_project
+from app.repositories.project_repository import (
+    delete_all_projects,
+    delete_project_by_url as delete_project_record,
+    get_project_by_url,
+    list_projects,
+    upsert_project,
+    update_project_record,
+)
 from app.services.globalVars import ProjectStatus
 from app.utils.applyForProject import apply_for_project
 from app.utils.someCommonFunctions import extract_projectUrl_from_emailcontent
@@ -79,11 +87,6 @@ async def get_codeur_new_project_matched() -> list[dict]:
     mail_box.close()
     return project_list
 
-@app.get("/projects")
-async def get_projects(limit: int | None = None) -> list[dict]:
-    projects = await list_projects(limit)
-    return projects
-
 @app.get("/projects/apply_all_projects")
 async def apply_all_projects() -> list[dict]:
     projects = await list_projects()
@@ -99,12 +102,40 @@ async def apply_project(project_url: str) -> dict:
     if not project:
         return {"success": False, "error": "Project not found"}
     try:
-        await apply_for_project(project)
-        return {"success": True}
+        result, message = await apply_for_project(project)
+        return {"success": result, "message": message}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-@app.get("/projects/delete_all_projects")
-async def delete_all_projects() -> dict:
-    await delete_all_projects_from_db()
+@app.put("/projects/project")
+async def update_project(project_url: str, project: dict[str, Any]) -> dict:
+    await update_project_record(project_url, project)
+    return {"success": True}
+
+@app.get("/projects/project")
+async def get_project(project_url: str) -> dict:
+    project = await get_project_by_url(project_url)
+    if not project:
+        return {"success": False, "error": "Project not found"}
+    project_doc = project.copy()
+    if "_id" in project_doc:
+        project_doc["_id"] = str(project_doc["_id"])
+    return {"success": True, "project": project_doc}
+
+@app.delete("/projects/project")
+async def delete_project(project_url: str) -> dict:
+    project = await get_project_by_url(project_url)
+    if not project:
+        return {"success": False, "error": "Project not found"}
+    await delete_project_record(project_url)
+    return {"success": True}
+
+@app.get("/projects")
+async def get_projects(limit: int | None = None) -> list[dict]:
+    projects = await list_projects(limit)
+    return projects
+
+@app.delete("/projects")
+async def delete_all_projects_from_db() -> dict:
+    await delete_all_projects()
     return {"success": True}

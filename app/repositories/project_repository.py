@@ -40,10 +40,14 @@ async def get_project_by_url(url: str) -> dict[str, Any] | None:
     collection = _get_collection()
     return await collection.find_one({"url": url})
 
-async def update_project_status(project_id: str, status: ProjectStatus | str) -> None:
+async def update_project_record(project_url: str, project: dict) -> None:
     collection = _get_collection()
-    await collection.update_one({"project_id": project_id}, {"$set": {"status": status.value if isinstance(status, ProjectStatus) else status}})
+    await collection.update_one({"url": project_url}, {"$set": project})
 
-async def delete_all_projects_from_db() -> None:
+async def delete_project_by_url(url: str) -> None:
+    collection = _get_collection()
+    await collection.delete_one({"url": url})
+
+async def delete_all_projects() -> None:
     collection = _get_collection()
     await collection.delete_many({})
