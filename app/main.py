@@ -93,7 +93,11 @@ async def apply_all_projects() -> list[dict]:
     for project in projects:
         if project.status != ProjectStatus.NEW:
             continue
-        apply_for_project(project.url)
+        result, message = await apply_for_project(project)
+        if not result:
+            logging.error("Apply project %s failed: %s", project.url, message)
+            continue
+        logging.info("Apply project %s successfully: %s", project.url, message)
 
 @app.get("/projects/apply_project")
 async def apply_project(project_url: str) -> dict:
