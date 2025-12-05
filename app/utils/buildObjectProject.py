@@ -14,7 +14,7 @@ def build_object_project(email_content: str) -> tuple[Project, bool]:
     project_details = crawler.crawl_project_details()
     project_tags = crawler.crawl_project_tags()
     project_amount = crawler.crawl_project_amount()
-    print("Project amount: ", project_amount)
+    ("Project amount: ", project_amount)
     if project_amount is None or len(project_amount) == 0:
         project_amount = [1000, 1000]
     else:

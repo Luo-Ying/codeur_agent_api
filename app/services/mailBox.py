@@ -1,6 +1,7 @@
 import imaplib
 import logging
 
+logger = logging.getLogger(__name__)
 
 class MailConnectionConfig:
     def __init__(self, host: str, port: int, username: str, password: str, use_ssl: bool = True):
@@ -42,35 +43,32 @@ class MailBox:
         status, _ = self.mail_connection.connection.select("INBOX")
         if status != "OK":
             if self.debug:
-                logging.debug("IMAP select inbox failed: %s", status)
+                logger.debug(f"IMAP select inbox failed: {status}")
             return []
 
         # Only search for unseen emails
         status, data = self.mail_connection.connection.uid("SEARCH", None, "UNSEEN")
 
         if self.debug:
-            logging.debug("IMAP search status: %s", status)
-            logging.debug("Raw UNSEEN payload: %s", data)
+            logger.debug(f"IMAP search status: {status}")
+            logger.debug(f"Raw UNSEEN payload: {data}")
 
         if status != "OK" or not data:
             if self.debug:
-                logging.debug("Search for UNSEEN emails returned nothing or failed.")
+                logger.debug("Search for UNSEEN emails returned nothing or failed.")
             return []
 
         # Split email IDs
         email_ids = data[0].split() if data[0] else []
 
-        # Debug: Print flags for each email
+        # Debug: log the flags for each email
         if self.debug:
             for raw_uid in email_ids:
                 flag_status, flag_data = self.mail_connection.connection.uid(
                     "FETCH", raw_uid, "(FLAGS)"
                 )
-                logging.debug(
-                    "Email UID %s flags: %s %s",
-                    raw_uid.decode(),
-                    flag_status,
-                    flag_data
+                logger.debug(
+                    f"Email UID {raw_uid.decode()} flags: {flag_status} {flag_data}",
                 )
 
         # Convert to string IDs
@@ -84,17 +82,17 @@ class MailBox:
 
         if not message_uid:
             if self.debug:
-                logging.debug("Empty email identifier received while fetching email.")
+                logger.debug("Empty email identifier received while fetching email.")
             return None
 
         if self.debug:
             flag_status, flag_data = self.mail_connection.connection.uid("FETCH", message_uid, "(FLAGS)")
-            logging.debug("Pre-fetch flags for %s: status=%s data=%s", message_uid, flag_status, flag_data)
+            logger.debug(f"Pre-fetch flags for {message_uid}: status={flag_status} data={flag_data}")
 
         status, email_data = self.mail_connection.connection.uid("FETCH", message_uid, "(BODY.PEEK[])")
         if status != "OK" or not email_data:
             if self.debug:
-                logging.debug("Failed to fetch email UID %s: status=%s data=%s", message_uid, status, email_data)
+                logger.debug(f"Failed to fetch email UID {message_uid}: status={status} data={email_data}")
             return None
 
         # filter out None placeholders that some IMAP servers return
@@ -121,7 +119,7 @@ class MailBox:
 
         except Exception as e:
             if self.debug:
-                logging.debug("Exception marking email seen: %s", e)
+                logger.debug(f"Exception marking email seen: {e}")
             return False
 
         return status == "OK"

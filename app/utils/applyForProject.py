@@ -26,13 +26,14 @@ class OfferDuration:
 
 async def apply_for_project(project: dict[str, Any]) -> tuple[bool, str]:
     try:
-        project_id = project.get("project_id")
         project_url = project.get("url")
         crawler = CodeurProjectCrawler(project_url)
         if not crawler.check_project_availability():
-            await update_project_status(project_id, ProjectStatus.NOT_AVAILABLE)
-            print(f"Project {project_url} is not available")
-            return False
+            new_project = project.copy()
+            new_project["status"] = ProjectStatus.NOT_AVAILABLE
+            await update_project_record(project_url, new_project)
+            logger.info(f"Project {project_url} is not available")
+            return False, f"Project {project_url} is not available"
         # Generate the offer message, amount and duration with AI
         system_prompt_offer_duration = "You are a helper responsible for generating the offer duration for the project, and can only output JSON format duration."
         prompt_offer_duration = build_offer_project_duration_prompt(project["description"])
@@ -55,17 +56,16 @@ async def apply_for_project(project: dict[str, Any]) -> tuple[bool, str]:
             pricing_mode="flat_rate",
             level="standard",
         )
-        print("Offer payload: ", offer_payload)
+        logger.info("Offer payload: ", offer_payload)
         success, message = await apply_once(offer_payload)
         if success:
-            # await update_project_status(project_id, ProjectStatus.ANSWERED)
             new_project = project.copy()
             new_project["status"] = ProjectStatus.ANSWERED
             await update_project_record(project_url, new_project)
-            print(f"Project {project_url} applied successfully: {message}")
+            logger.info(f"Project {project_url} applied successfully: {message}")
             return True, message
         else:
-            print(f"Project {project_url} applied failed: {message}")
+            logger.error(f"Project {project_url} applied failed: {message}")
             return False, message
     except Exception as e:
         logger.error(f"Failed to apply for project {project_url}: {e}")
@@ -90,7 +90,7 @@ def build_offer_project_duration_prompt(project_description: str) -> str:
     return "\n".join(prompt_blocks)
 
 def parse_ai_offer_duration(result: Dict[str, Any]) -> OfferDuration:
-    print("AI response: ", result)
+    logger.info("AI response: ", result)
     try:
         offer_duration = result["offer_duration"]
         return OfferDuration(offer_duration=offer_duration)
@@ -127,7 +127,7 @@ def build_offer_amount_prompt(project_amount_range: list[int],duration: int, pro
     return "\n".join(prompt_blocks)
 
 def parse_ai_offer_amount(result: Dict[str, Any]) -> OfferAmount:
-    print("AI response: ", result)
+    logger.info("AI response: ", result)
     try:
         offer_amount = result["offer_amount"]
         return OfferAmount(offer_amount=offer_amount)
@@ -170,7 +170,7 @@ def build_offer_message_prompt(person_profile: str, project_description: str) ->
     return "\n".join(prompt_blocks)
 
 def parse_ai_offer_message(result: Dict[str, Any]) -> OfferMessage:
-    print("AI response: ", result)
+    logger.info("AI response: ", result)
     try:
         offer_message = result["offer_message"]
         return OfferMessage(offer_message=offer_message)
