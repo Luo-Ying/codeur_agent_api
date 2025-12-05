@@ -7,6 +7,8 @@ profile = """
 Passionnée par le développement logiciel et spécialisée en full-stack, je conçois et développe des applications robustes, scalables et maintenables.
 Mon objectif : livrer du code propre, optimisé et aligné avec les besoins métier 🎯.
 
+portfolio_url = "https://yingqi-luo.fr/"
+
 🔧 Compétences techniques
 
 — Développement full-stack : conception, développement, tests, maintenance
