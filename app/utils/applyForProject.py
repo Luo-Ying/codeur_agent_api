@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-import json
 from typing import Any, Dict
 import logging
+import json
 
 from app.services import CodeurProjectCrawler
 from app.services.globalVars import ProjectStatus, profile
@@ -89,13 +89,14 @@ def build_offer_project_duration_prompt(project_description: str) -> str:
     ]
     return "\n".join(prompt_blocks)
 
-def parse_ai_offer_duration(result: Dict[str, Any]) -> OfferDuration:
-    logger.info("AI response: ", result)
+def parse_ai_offer_duration(result) -> OfferDuration:
+    result_dict = _ensure_dict_response(result)
+    logger.info("AI response: %s", result_dict)
     try:
-        offer_duration = result["offer_duration"]
+        offer_duration = result_dict["offer_duration"]
         return OfferDuration(offer_duration=offer_duration)
     except (ValueError, TypeError, KeyError) as exc:
-        logger.error("Parse AI response failed: %s", result, exc_info=True)
+        logger.error("Parse AI response failed: %s", result_dict, exc_info=True)
         return OfferDuration(offer_duration=0)
 
 def build_offer_amount_prompt(project_amount_range: list[int],duration: int, project_description: str) -> str:
@@ -127,12 +128,13 @@ def build_offer_amount_prompt(project_amount_range: list[int],duration: int, pro
     return "\n".join(prompt_blocks)
 
 def parse_ai_offer_amount(result: Dict[str, Any]) -> OfferAmount:
-    logger.info("AI response: ", result)
+    result_dict = _ensure_dict_response(result)
+    logger.info("AI response: %s", result_dict)
     try:
-        offer_amount = result["offer_amount"]
+        offer_amount = result_dict["offer_amount"]
         return OfferAmount(offer_amount=offer_amount)
     except (ValueError, TypeError, KeyError) as exc:
-        logger.error("Parse AI response failed: %s", result, exc_info=True)
+        logger.error("Parse AI response failed: %s", result_dict, exc_info=True)
         return OfferAmount(offer_amount=0)
 
 def build_offer_message_prompt(person_profile: str, project_description: str) -> str:
@@ -143,7 +145,8 @@ def build_offer_message_prompt(person_profile: str, project_description: str) ->
             "Bonjour, je suis très enthousiaste à l’idée de participer à votre projet. Mes compétences et expériences variées me permettent d’apporter des solutions efficaces et créatives, parfaitement adaptées à vos besoins. "
             "I have a strong ability to solve complex problems, design robust architectures, and ensure the quality of development. "
             "I put a lot of emphasis on communication, listening, and accompaniment at each stage of the project to ensure the success of our collaboration. "
-            "If you want to share more details about the project, feel free to contact me to discuss more: I am ready to transform your vision into reality!"
+            "I share my portfolio with you to show you my work and my skills. You can find my portfolio and projects at https://yingqi-luo.fr/. Don't hesitate to contact me if you have any questions."
+            "Anyway, if you want to share more details about the project, feel free to contact me to discuss more: I am ready to transform your vision into reality!"
         ),
     }
     prompt_blocks = [
@@ -169,11 +172,29 @@ def build_offer_message_prompt(person_profile: str, project_description: str) ->
     ]
     return "\n".join(prompt_blocks)
 
-def parse_ai_offer_message(result: Dict[str, Any]) -> OfferMessage:
-    logger.info("AI response: ", result)
+def parse_ai_offer_message(result) -> OfferMessage:
+    result_dict = _ensure_dict_response(result)
+    logger.info("AI response: %s", result_dict)
     try:
-        offer_message = result["offer_message"]
+        offer_message = result_dict["offer_message"]
         return OfferMessage(offer_message=offer_message)
     except (ValueError, TypeError, KeyError) as exc:
-        logger.error("Parse AI response failed: %s", result, exc_info=True)
+        logger.error("Parse AI response failed: %s", result_dict, exc_info=True)
         return OfferMessage(offer_message="")
+
+
+def _ensure_dict_response(result) -> dict:
+    """
+    Ensure result is a dict; try to parse it if it is a string.
+    If parsing fails, return an empty dict as fallback.
+    """
+    if isinstance(result, dict):
+        return result
+    if isinstance(result, str):
+        try:
+            return json.loads(result)
+        except json.JSONDecodeError as exc:
+            logger.error("AI response is not valid JSON: %s", result, exc_info=True)
+            return {}
+    logger.error("AI response is not a dict or string: %s", result)
+    return {}
