@@ -61,7 +61,7 @@ def keyword_filter(emailcontent: str) -> bool:
     if _RULE_KEYWORDS:
         keyword_hit = any(keyword in lowered for keyword in _RULE_KEYWORDS)
         if not keyword_hit:
-            logger.debug("Keyword not hit: %s", _RULE_KEYWORDS)
+            logger.debug(f"Keyword not hit: {_RULE_KEYWORDS}")
             return False
 
     return True
@@ -74,7 +74,7 @@ def ai_match_decision(emailcontent: str) -> MatchDecision:
     try:
         ai_response = call_llama_service(prompt, system_prompt)
     except Exception as exc:
-        logger.error("AI call failed, fallback to rule result: %s", exc, exc_info=True)
+        logger.error(f"AI call failed, fallback to rule result: {exc}", exc_info=True)
         return MatchDecision(matched=False)  # Conservative strategy: rule layer already passed
 
     return parse_ai_decision(ai_response)
@@ -107,7 +107,7 @@ def build_prompt(person_profile: str, project_description: str) -> str:
 
 
 def parse_ai_decision(result: Dict[str, Any]) -> MatchDecision:
-    print("AI response: ", result)
+    logger.info(f"AI response: {result}")
     try:
         matched = bool(result["match"])
         score_value = result.get("score")
@@ -116,7 +116,7 @@ def parse_ai_decision(result: Dict[str, Any]) -> MatchDecision:
         reasons = [str(reason) for reason in reasons_raw][:3]
         return MatchDecision(matched=matched, score=score, reasons=reasons)
     except (ValueError, TypeError, KeyError) as exc:
-        logger.error("Parse AI response failed: %s", result, exc_info=True)
+        logger.error(f"Parse AI response failed: {result}", exc_info=True)
         return MatchDecision(matched=False)
 
 

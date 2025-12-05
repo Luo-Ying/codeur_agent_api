@@ -78,7 +78,7 @@ class CodeurOfferAutomation:
             logger.info("Received successful /offers response (2xx/302).")
             return True
 
-        # if 4xx/422, print the response body
+        # if 4xx/422, log the response body
         if 400 <= response.status < 500:
             try:
                 text = await response.text()

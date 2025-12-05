@@ -20,6 +20,8 @@ from app.services.globalVars import ProjectStatus
 from app.utils.applyForProject import apply_for_project
 from app.utils.someCommonFunctions import extract_projectUrl_from_emailcontent
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI()
 
 load_dotenv()
@@ -54,13 +56,13 @@ async def get_codeur_new_project_matched() -> list[dict]:
     for email_id in unread_emails:
         email = mail_box.getEmail(email_id)
         if not email:
-            logging.warning("cannot get email content for email UID %s", email_id)
+            logger.warning(f"cannot get email content for email UID {email_id}")
             continue
         email_obj = Email(email)
         try:
             email_title, email_from, email_content = email_obj.parse_email()
         except ValueError as exc:
-            logging.warning("parse email UID %s failed: %s", email_id, exc)
+            logger.warning(f"parse email UID {email_id} failed: {exc}")
             continue
         if "notification@compte.codeur.com" not in email_from or "Nouveau projet" not in email_title:
             continue
@@ -95,25 +97,35 @@ async def apply_all_projects() -> list[dict]:
             continue
         result, message = await apply_for_project(project)
         if not result:
-            logging.error("Apply project %s failed: %s", project.url, message)
+            logger.error(f"Apply project {project.url} failed: {message}")
             continue
-        logging.info("Apply project %s successfully: %s", project.url, message)
+        logger.info(f"Apply project {project.url} successfully: {message}")
 
 @app.get("/projects/apply_project")
 async def apply_project(project_url: str) -> dict:
-    print("Apply project: ", project_url)
+    logger.info(f"Apply project: {project_url}")
     project = await get_project_by_url(project_url)
     if not project:
+        logger.error(f"Project {project_url} not found")
         return {"success": False, "error": "Project not found"}
+    if project.status != ProjectStatus.NEW:
+        logger.error(f"Project {project_url} is not new")
+        return {"success": False, "error": "Project is not new"}
     try:
         result, message = await apply_for_project(project)
+        if not result:
+            logger.error(f"Apply project {project_url} failed: {message}")
+            return {"success": False, "error": message}
+        logger.info(f"Apply project {project_url} successfully: {message}")
         return {"success": result, "message": message}
     except Exception as e:
+        logger.error(f"Apply project {project_url} failed: {e}")
         return {"success": False, "error": str(e)}
 
 @app.put("/projects/project")
 async def update_project(project_url: str, project: dict[str, Any]) -> dict:
     await update_project_record(project_url, project)
+    logger.info(f"Update project {project_url} successfully")
     return {"success": True}
 
 @app.get("/projects/project")
@@ -132,6 +144,7 @@ async def delete_project(project_url: str) -> dict:
     if not project:
         return {"success": False, "error": "Project not found"}
     await delete_project_record(project_url)
+    logger.info(f"Delete project {project_url} successfully")
     return {"success": True}
 
 @app.get("/projects")
@@ -142,4 +155,5 @@ async def get_projects(limit: int | None = None) -> list[dict]:
 @app.delete("/projects")
 async def delete_all_projects_from_db() -> dict:
     await delete_all_projects()
+    logger.info("Delete all projects successfully")
     return {"success": True}
