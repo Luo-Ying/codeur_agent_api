@@ -47,7 +47,11 @@ class MailBox:
             return []
 
         # Only search for unseen emails
-        status, data = self.mail_connection.connection.uid("SEARCH", None, "UNSEEN")
+        status, data = self.mail_connection.connection.uid(
+            "SEARCH",
+            None, 
+            'X-GM-RAW "in:inbox is:unread"'
+        )
 
         if self.debug:
             logger.debug(f"IMAP search status: {status}")
