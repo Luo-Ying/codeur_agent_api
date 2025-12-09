@@ -3,7 +3,6 @@ from typing import Optional
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright  # pyright: ignore[reportMissingImports]
 
 STORAGE_STATE_PATH = Path(__file__).parent / "storage_state.json"
-LOGIN_URL = "https://www.codeur.com/users/sign_in"
 
 class CodeurBrowserSession:
     def __init__(self, storage_state_path: Path = STORAGE_STATE_PATH, headless: bool = True):

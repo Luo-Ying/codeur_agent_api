@@ -26,6 +26,7 @@ class MatchDecision:
 
 
 def is_matched_project(emailcontent: str) -> bool:
+    logger.info(f"Evaluating project for email content: {emailcontent}")
     text_content = extract_text_from_html(emailcontent)
     if not text_content:
         logger.debug("Email content is empty, return False")
@@ -37,7 +38,8 @@ def is_matched_project(emailcontent: str) -> bool:
 
     # first step filter: email content filter
     decision = ai_match_decision(text_content)
-    if decision.score is None:
+    if decision.matched is None or not decision.matched:
+        logger.debug(f"AI match decision matched is None or False, return False")
         return decision.matched
 
     # second step filter: project details filter
@@ -45,13 +47,17 @@ def is_matched_project(emailcontent: str) -> bool:
     if project_url is None:
         logger.debug("Project URL not found, return False")
         return False
-    # crawler = Crawler(project_url)
     crawler = CodeurProjectCrawler(project_url)
+    logger.info(f"Evaluating project details for project URL: {project_url}")
     project_details = crawler.crawl_project_details()  # crawl project details from the codeur website
+    logger.info(f"Project details: {project_details}")
     decision = ai_match_decision(project_details)   # parse AI decision from the project details
     if decision.score is None:
+        logger.debug(f"AI match decision score is None")
         return decision.matched
 
+    logger.info(f"AI match decision score: {decision.score}")
+    logger.info(f"AI match decision matched: {decision.matched}")
     return decision.matched and decision.score >= _MIN_AI_SCORE
 
 

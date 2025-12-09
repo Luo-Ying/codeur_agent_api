@@ -12,6 +12,7 @@ from app.repositories.project_repository import (
     delete_all_projects,
     delete_project_by_url as delete_project_record,
     get_project_by_url,
+    get_projects_count_from_repo,
     list_projects,
     upsert_project,
     update_project_record,
@@ -68,19 +69,26 @@ async def get_codeur_new_project_matched() -> list[dict]:
             continue
         project_url = extract_projectUrl_from_emailcontent(email_content)
         if project_url is None:
+            logger.warning(f"cannot extract project URL from email content for email UID {email_id}")
             continue
         existing = await get_project_by_url(project_url)
         if existing:
+            logger.warning(f"project {project_url} already exists")
             mail_box.setEmailSeen(email_id)
             continue
+        is_matched = is_matched_project(email_content)
+        logger.info(f"project {project_url} is matched: {is_matched}")
         if not is_matched_project(email_content):
+            logger.warning(f"project {project_url} is not matched")
             mail_box.setEmailSeen(email_id)
             continue
         project, is_project_available = build_object_project(email_content)
         if not is_project_available:
+            logger.warning(f"project {project_url} is not available")
             mail_box.setEmailSeen(email_id)
             continue
         if is_project_available and project is not None:
+            logger.info(f"build object project {project_url} successfully")
             project_dict = project.__dict__
             project_list.append(project_dict)
             await upsert_project(project_dict)
@@ -151,6 +159,11 @@ async def delete_project(project_url: str) -> dict:
 async def get_projects(limit: int | None = None) -> list[dict]:
     projects = await list_projects(limit)
     return projects
+
+@app.get("/projects/count")
+async def get_projects_count() -> dict:
+    count = await get_projects_count_from_repo()
+    return {"success": True, "count": count}
 
 @app.delete("/projects")
 async def delete_all_projects_from_db() -> dict:

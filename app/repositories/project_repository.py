@@ -35,6 +35,9 @@ async def list_projects(limit: int | None = None) -> list[dict[str, Any]]:
         results.append(doc)
     return results
 
+async def get_projects_count_from_repo() -> int:
+    collection = _get_collection()
+    return await collection.count_documents({})
 
 async def get_project_by_url(url: str) -> dict[str, Any] | None:
     collection = _get_collection()

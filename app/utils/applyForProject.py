@@ -35,14 +35,17 @@ async def apply_for_project(project: dict[str, Any]) -> tuple[bool, str]:
             logger.info(f"Project {project_url} is not available")
             return False, f"Project {project_url} is not available"
         # Generate the offer message, amount and duration with AI
+        # offer duration
         system_prompt_offer_duration = "You are a helper responsible for generating the offer duration for the project, and can only output JSON format duration."
         prompt_offer_duration = build_offer_project_duration_prompt(project["description"])
         ai_response_offer_duration = call_llama_service(prompt_offer_duration, system_prompt_offer_duration)
         offer_duration = parse_ai_offer_duration(ai_response_offer_duration).offer_duration
+        # offer amount
         system_prompt_offer_amount = "You are a helper responsible for generating the offer amount for the project, and can only output JSON format amount."
         prompt_offer_amount = build_offer_amount_prompt(project.get("amount"), offer_duration, project["description"])
         ai_response_offer_amount = call_llama_service(prompt_offer_amount, system_prompt_offer_amount)
         offer_amount = parse_ai_offer_amount(ai_response_offer_amount).offer_amount
+        # offer message
         system_prompt_offer_message = "You are a helper responsible for generating the offer message for the project, and can only output JSON format message."
         prompt_offer_message = build_offer_message_prompt(profile, project["description"])
         ai_response_offer_message = call_llama_service(prompt_offer_message, system_prompt_offer_message)
