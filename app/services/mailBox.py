@@ -101,6 +101,44 @@ class MailBox:
 
         # filter out None placeholders that some IMAP servers return
         return [chunk for chunk in email_data if chunk]
+    
+    def moveEmailToLabel(self, email_id: str, label: str) -> bool:
+        """
+        Move the specified email to the specified label.
+        Returns True if the operation was successful, False otherwise.
+        """
+        try:
+            conn = self.mail_connection.connection
+            
+            status, _ = conn.select("INBOX")
+            if status != "OK":
+                return False
+            
+            status, _ = conn.uid(
+                "STORE", 
+                email_id,
+                "+X-GM-LABELS",
+                f"({label})"    
+            )
+            if status != "OK":
+                return False
+            
+            status, _ = conn.uid(
+                "STORE",
+                email_id,
+                "+FLAGS",
+                "(\\Deleted)"
+            )
+            if status != "OK":
+                return False
+            
+            conn.expunge()
+            return True
+        
+        except Exception as e:
+            if self.debug:
+                logger.debug(f"Exception moving email to label: {e}")
+            return False
 
     def setEmailSeen(self, email_uid: str) -> bool:
         """
@@ -127,7 +165,35 @@ class MailBox:
             return False
 
         return status == "OK"
+    
+    def deleteEmailFromInbox(self, email_uid: str) -> bool:
+        """
+        Delete the specified email from the inbox.
+        Returns True if the operation was successful, False otherwise.
+        """
+        try:
+            conn = self.mail_connection.connection
+            status, _ = conn.select("INBOX")
+            if status != "OK":
+                return False
 
+            status, _ = conn.uid(
+                "STORE",
+                email_uid,
+                "+FLAGS",
+                "(\\Deleted)"
+            )
+            if status != "OK":
+                return False
+
+            conn.expunge()
+            return True
+
+        except Exception as e:
+            if self.debug:
+                logger.debug(f"Exception deleting email from inbox: {e}")
+            return False
+        
     def close(self):
         self.mail_connection.disconnect()
 

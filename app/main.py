@@ -75,17 +75,20 @@ async def get_codeur_new_project_matched() -> list[dict]:
         if existing:
             logger.warning(f"project {project_url} already exists")
             mail_box.setEmailSeen(email_id)
+            mail_box.moveEmailToLabel(email_id, "Codeur")
             continue
+        # if the current email is matched (i.e. passed all previous continues), move it to the label "Codeur"
         is_matched = is_matched_project(email_content)
         logger.info(f"project {project_url} is matched: {is_matched}")
-        if not is_matched_project(email_content):
+        if not is_matched:
             logger.warning(f"project {project_url} is not matched")
-            mail_box.setEmailSeen(email_id)
+            mail_box.deleteEmailFromInbox(email_id)
             continue
         project, is_project_available = build_object_project(email_content)
         if not is_project_available:
             logger.warning(f"project {project_url} is not available")
             mail_box.setEmailSeen(email_id)
+            mail_box.moveEmailToLabel(email_id, "Codeur")
             continue
         if is_project_available and project is not None:
             logger.info(f"build object project {project_url} successfully")
@@ -93,6 +96,7 @@ async def get_codeur_new_project_matched() -> list[dict]:
             project_list.append(project_dict)
             await upsert_project(project_dict)
             mail_box.setEmailSeen(email_id)
+            mail_box.moveEmailToLabel(email_id, "Codeur")
 
     mail_box.close()
     return project_list
