@@ -1,0 +1,64 @@
+# version: '3.8'
+
+services:
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama-latest
+    entrypoint: [ "/bin/sh", "-c", "until ollama list >/dev/null 2>&1; do echo 'waiting for ollama-latest'; sleep 5; done; ollama pull llama3" ]
+    volumes:
+      - ./ollama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://ollama-latest:${OLLAMA_PORT:-11434}
+    restart: "no"
+
+  codeur-agent-api:
+    build: ./
+    volumes:
+      - ./app/services:/app/app/services
+    container_name: codeur-agent-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - ollama-latest
+    environment:
+      - OLLAMA_HOST=http://ollama-latest:${OLLAMA_PORT:-11434}
+
+  ollama-latest:
+    image: ollama/ollama:latest
+    container_name: ollama-latest
+    ports:
+      - "${OLLAMA_PORT:-11434}:${OLLAMA_PORT:-11434}"
+    volumes:
+      - ./ollama:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=1h
+    healthcheck:
+      test: [ "CMD", "ollama", "list" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  mongo:
+    image: mongo:7
+    container_name: codeur-agent-mongo
+    restart: unless-stopped
+    env_file:
+      - ./env/.mongo.env
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
