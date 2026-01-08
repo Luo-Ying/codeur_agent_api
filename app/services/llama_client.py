@@ -7,7 +7,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
+_DEFAULT_HOST = os.getenv("OLLAMA_HOST", f"http://ollama:{os.getenv('OLLAMA_PORT', '11434')}")
 
 
 def call_llama(

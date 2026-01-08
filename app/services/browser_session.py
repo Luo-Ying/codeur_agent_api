@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright  # pyright: ignore[reportMissingImports]
 
-STORAGE_STATE_PATH = Path(__file__).parent / "storage_state.json"
+STORAGE_STATE_PATH = Path(__file__).resolve().parent.joinpath("storage_state.json")
 
 class CodeurBrowserSession:
     def __init__(self, storage_state_path: Path = STORAGE_STATE_PATH, headless: bool = True):

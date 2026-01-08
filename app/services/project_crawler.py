@@ -174,6 +174,16 @@ class CodeurProjectCrawler(Crawler):
 
             text = budget_span.get_text(" ", strip=True)
             raw_amounts = re.findall(r"(\d[\d\s\u00a0\u202f]*)\s*€", text)
+            """ 
+            - (\d[\d\s\u00a0\u202f]*)：The first character must be a digit \d, followed by zero to multiple [\d\s\u00a0\u202f]
+                - \d Match the digit again 
+                - \s Match the space
+                - \u00a0 Match the non-breaking space (common in English number grouping)
+                - \u202f Match the narrow no-break space (common in French number grouping)
+            - \s*：The amount can have any number of spaces after it.
+            - €：The euro symbol follows the amount.
+            The text is like this: "1000 € - 1500 €"
+            """
 
             amounts = [
                 int(re.sub(r"[^\d]", "", amt))

@@ -9,7 +9,7 @@ services:
     volumes:
       - ./ollama:/root/.ollama
     environment:
-      - OLLAMA_HOST=http://ollama-latest:11434
+      - OLLAMA_HOST=http://ollama-latest:${OLLAMA_PORT:-11434}
     restart: "no"
 
   codeur-agent-api:
@@ -24,13 +24,13 @@ services:
     depends_on:
       - ollama-latest
     environment:
-      - OLLAMA_HOST=http://ollama-latest:11434
+      - OLLAMA_HOST=http://ollama-latest:${OLLAMA_PORT:-11434}
 
   ollama-latest:
     image: ollama/ollama:latest
     container_name: ollama-latest
     ports:
-      - "11434:11434"
+      - "${OLLAMA_PORT:-11434}:${OLLAMA_PORT:-11434}"
     volumes:
       - ./ollama:/root/.ollama
     environment:
