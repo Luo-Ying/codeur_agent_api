@@ -1,6 +1,8 @@
 import imaplib
 import logging
 
+from app.services.logging import setup_logging
+
 logger = logging.getLogger(__name__)
 
 class MailConnectionConfig:

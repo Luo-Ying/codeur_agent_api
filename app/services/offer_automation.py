@@ -5,6 +5,8 @@ from app.services import CodeurBrowserSession
 from playwright.async_api import Page  # pyright: ignore[reportMissingImports]
 import logging
 
+from app.services.logging import setup_logging
+
 logger = logging.getLogger(__name__)
 
 class CodeurOfferAutomation:
@@ -72,8 +74,6 @@ class CodeurOfferAutomation:
 
         response = await response_info.value
 
-        logger.info(f"Offer submit response => url: {response.url}, status: {response.status}")
-
         if response.status in (200, 201, 204, 302):
             logger.info("Received successful /offers response (2xx/302).")
             return True
@@ -118,4 +118,3 @@ async def apply_once(payload: OfferPayload, *, headless: bool = True) -> tuple[b
         return False, f"Failed to apply for project {payload.project_url}: {e}"
     finally:
         await session.close()
-        logger.info(f"Closed browser session")

@@ -4,6 +4,7 @@ from fastapi import FastAPI # pyright: ignore[reportMissingImports]
 import os
 from dotenv import load_dotenv
 
+from app.services.logging import setup_logging
 from app.db.mongo import connect_to_mongo, close_mongo_connection
 from app.services.mailBox import Email, MailBox, MailConnection, MailConnectionConfig
 from app.utils.findMatchedProject import is_matched_project
@@ -21,6 +22,7 @@ from app.services.globalVars import ProjectStatus
 from app.utils.applyForProject import apply_for_project
 from app.utils.someCommonFunctions import extract_projectUrl_from_emailcontent
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
@@ -79,7 +81,6 @@ async def get_codeur_new_project_matched() -> list[dict]:
             continue
         # if the current email is matched (i.e. passed all previous continues), move it to the label "Codeur"
         is_matched = is_matched_project(email_content)
-        logger.info(f"project {project_url} is matched: {is_matched}")
         if not is_matched:
             logger.warning(f"project {project_url} is not matched")
             mail_box.deleteEmailFromInbox(email_id)
@@ -115,7 +116,6 @@ async def apply_all_projects() -> list[dict]:
 
 @app.get("/projects/apply_project")
 async def apply_project(project_url: str) -> dict:
-    logger.info(f"Apply project: {project_url}")
     project = await get_project_by_url(project_url)
     if not project:
         logger.error(f"Project {project_url} not found")

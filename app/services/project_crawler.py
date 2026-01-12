@@ -1,6 +1,7 @@
-from typing import List
 import re
-import logging  
+import logging
+
+from app.services.logging import setup_logging
 from app.services.crawler import Crawler
 
 logger = logging.getLogger(__name__)

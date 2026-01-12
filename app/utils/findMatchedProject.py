@@ -1,12 +1,12 @@
 import json
-import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from bs4 import BeautifulSoup  # pyright: ignore[reportMissingModuleSource]
+import logging
 
 from app.services import CodeurProjectCrawler
-
+from app.services.logging import setup_logging
 from app.services.globalVars import profile
 from app.services import call_llama as call_llama_service
 from app.utils.someCommonFunctions import extract_projectUrl_from_emailcontent
@@ -26,7 +26,6 @@ class MatchDecision:
 
 
 def is_matched_project(emailcontent: str) -> bool:
-    logger.info(f"Evaluating project for email content: {emailcontent}")
     text_content = extract_text_from_html(emailcontent)
     if not text_content:
         logger.debug("Email content is empty, return False")
@@ -48,16 +47,12 @@ def is_matched_project(emailcontent: str) -> bool:
         logger.debug("Project URL not found, return False")
         return False
     crawler = CodeurProjectCrawler(project_url)
-    logger.info(f"Evaluating project details for project URL: {project_url}")
     project_details = crawler.crawl_project_details()  # crawl project details from the codeur website
-    logger.info(f"Project details: {project_details}")
     decision = ai_match_decision(project_details)   # parse AI decision from the project details
     if decision.score is None:
         logger.debug(f"AI match decision score is None")
         return decision.matched
 
-    logger.info(f"AI match decision score: {decision.score}")
-    logger.info(f"AI match decision matched: {decision.matched}")
     return decision.matched and decision.score >= _MIN_AI_SCORE
 
 
@@ -113,7 +108,6 @@ def build_prompt(person_profile: str, project_description: str) -> str:
 
 
 def parse_ai_decision(result: Dict[str, Any]) -> MatchDecision:
-    logger.info(f"AI response: {result}")
     try:
         matched = bool(result["match"])
         score_value = result.get("score")

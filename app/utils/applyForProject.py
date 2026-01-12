@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from typing import Any, Dict
-import logging
 import json
+import logging
 
 from app.services import CodeurProjectCrawler
+from app.services.logging import setup_logging
 from app.services.globalVars import ProjectStatus, profile
 from app.repositories.project_repository import update_project_record
 from app.services import call_llama as call_llama_service
@@ -32,7 +33,6 @@ async def apply_for_project(project: dict[str, Any]) -> tuple[bool, str]:
             new_project = project.copy()
             new_project["status"] = ProjectStatus.NOT_AVAILABLE
             await update_project_record(project_url, new_project)
-            logger.info(f"Project {project_url} is not available")
             return False, f"Project {project_url} is not available"
         # Generate the offer message, amount and duration with AI
         # offer duration
@@ -59,7 +59,6 @@ async def apply_for_project(project: dict[str, Any]) -> tuple[bool, str]:
             pricing_mode="flat_rate",
             level="standard",
         )
-        logger.info("Offer payload: ", offer_payload)
         success, message = await apply_once(offer_payload)
         if success:
             new_project = project.copy()
@@ -94,7 +93,6 @@ def build_offer_project_duration_prompt(project_description: str) -> str:
 
 def parse_ai_offer_duration(result) -> OfferDuration:
     result_dict = _ensure_dict_response(result)
-    logger.info("AI response: %s", result_dict)
     try:
         offer_duration = result_dict["offer_duration"]
         return OfferDuration(offer_duration=offer_duration)
@@ -132,7 +130,6 @@ def build_offer_amount_prompt(project_amount_range: list[int],duration: int, pro
 
 def parse_ai_offer_amount(result: Dict[str, Any]) -> OfferAmount:
     result_dict = _ensure_dict_response(result)
-    logger.info("AI response: %s", result_dict)
     try:
         offer_amount = result_dict["offer_amount"]
         return OfferAmount(offer_amount=offer_amount)
@@ -177,7 +174,6 @@ def build_offer_message_prompt(person_profile: str, project_description: str) ->
 
 def parse_ai_offer_message(result) -> OfferMessage:
     result_dict = _ensure_dict_response(result)
-    logger.info("AI response: %s", result_dict)
     try:
         offer_message = result_dict["offer_message"]
         return OfferMessage(offer_message=offer_message)

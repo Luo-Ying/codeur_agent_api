@@ -1,9 +1,10 @@
 import json
-import logging
 import os
 from typing import Any, Dict, Optional
-
 import requests
+import logging
+
+from app.services.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
